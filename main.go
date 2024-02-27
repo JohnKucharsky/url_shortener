@@ -1,54 +1,49 @@
 package main
 
 import (
-	"github.com/go-playground/validator/v10"
+	"fmt"
+	"github.com/JohnKucharsky/url_shortener/handlers"
+	"github.com/JohnKucharsky/url_shortener/store/dbstore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"log"
-	"net/http"
+	"log/slog"
+	"os"
+	"os/signal"
 )
-
-type (
-	User struct {
-		Name string `json:"name" validate:"required,min=5,max=20"` // Required field, min 5 char long max 20
-		Age  int    `json:"age" validate:"required,numeric"`       // Required field, and client needs to implement our 'teener' tag format which we'll see later
-	}
-
-	XValidator struct {
-		validator *validator.Validate
-	}
-)
-
-var validate = validator.New()
-
-func (v XValidator) Validate(data interface{}) error {
-	return validate.Struct(data)
-}
 
 func main() {
-	myValidator := &XValidator{
-		validator: validate,
-	}
-
 	app := fiber.New()
 	app.Use(logger.New())
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		_ = <-c
+		fmt.Println("Gracefully shutting down...")
+		_ = app.Shutdown()
+	}()
+
+	lo := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	app.Get(
-		"/", func(c *fiber.Ctx) error {
-			user := &User{
-				Name: c.Query("name"),
-				Age:  c.QueryInt("age"),
-			}
-
-			// Validation
-			if err := myValidator.Validate(user); err != nil {
-				return fiber.NewError(http.StatusBadRequest, err.Error())
-			}
-
-			// Logic, validated with success
-			return c.Status(http.StatusCreated).JSON(user)
-		},
+		"/health", handlers.NewHealthcheckHandler().ServeHTTP,
 	)
 
-	log.Fatal(app.Listen(":8080"))
+	shortURLStore := dbstore.NewShortURLStore(lo)
+
+	app.Post(
+		"/short_url",
+		handlers.NewCreateShortURLHandler(
+			handlers.CreateShortURLHandlerParams{
+				ShortURLStore: shortURLStore,
+			},
+		).ServeHTTP,
+	)
+
+	if err := app.Listen(":8080"); err != nil {
+		log.Panic(err)
+	}
+
+	fmt.Println("Running cleanup tasks...")
 }

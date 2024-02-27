@@ -1,0 +1,38 @@
+{
+  id : "c4f9bf36-687a-4c5d-a1b6-09923144dc3e",
+  name : "coll",
+  icon : "FOLDER",
+  sortWeight : 1000000,
+  requests : [
+    {
+      id : "5d498be1-7703-4a31-911d-04e764e351e0",
+      name : "test",
+      method : "POST",
+      url : "http://localhost:8080/short_url",
+      queryParams : [
+        {
+          key : "name",
+          value : "33453",
+          disabled : true
+        },
+        {
+          key : "age",
+          value : "45",
+          disabled : true
+        }
+      ],
+      headers : [
+        {
+          key : "Content-Type",
+          value : "application/json"
+        }
+      ],
+      body : {
+        type : "JSON",
+        raw : '{\
+  "destination": ""\
+}'
+      }
+    }
+  ]
+}
